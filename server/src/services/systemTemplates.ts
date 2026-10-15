@@ -1,3 +1,4 @@
+import { RECEIPT_SUBJECT, WELCOME_SUBJECT } from '../lib/mailPolicy';
 import { renderTemplate, textToHtmlParagraphs, wrapEmailHtml } from '../lib/template';
 
 const FOOTER_TEXT = `
@@ -189,40 +190,56 @@ Support:
 
 const receiptText = `Hello {{student_name}},
 
-This message confirms the payment record saved in Bitvion CRM.
+MARKEX Trading Academy has recorded your payment.
 
-Name:
-{{student_name}}
+Amount paid: {{amount_collected}}
+Collected on: {{collected_date}}
+Pending amount: {{pending_amount}}
 
-Gender:
-{{gender}}
+Name: {{student_name}}
+Place: {{place}}
+Phone: {{phone}}
 
-Place:
-{{place}}
+Please keep this note for your records.
+https://markex-academy.com/
 
-Email:
-{{email}}
-
-Phone:
-{{phone}}
-
-Amount collected:
-{{amount_collected}}
-
-Pending amount:
-{{pending_amount}}
-
-Collected date:
-{{collected_date}}
-
-This email is a record of the amounts entered by the academy. It does not by itself confirm a bank transfer.
-
-BITVION CRM
-
-BUILDING BUSINESSES. CREATING GROWTH.
-
-Support:
+MARKEX Trading Academy
 {{support_email}}`;
+
+const receiptHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<style>
+  :root { color-scheme: light dark; supported-color-schemes: light dark; }
+  .logo-bg, .logo-bg img { background-color:#000000 !important; background-image:linear-gradient(#000000,#000000) !important; }
+  @media (prefers-color-scheme: dark) {
+    .logo-bg, .logo-bg img { background-color:#000000 !important; background-image:linear-gradient(#000000,#000000) !important; }
+  }
+</style>
+</head>
+<body style="margin:0;padding:16px;background:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;color:#1c1917;">
+  <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 16px;">
+    <tr><td class="logo-bg" bgcolor="#000000" style="background-color:#000000;background-image:linear-gradient(#000000,#000000);padding:8px 12px;line-height:0;">
+      <img class="logo-bg" src="https://markex-academy.com/brand/markex-logo.png" width="220" alt="MARKEX Trading Academy" style="display:block;width:220px;max-width:220px;height:auto;border:0;background-color:#000000;background-image:linear-gradient(#000000,#000000);">
+    </td></tr>
+  </table>
+  <p style="margin:0 0 12px;">Hello {{student_name}},</p>
+  <p style="margin:0 0 12px;">MARKEX Trading Academy has recorded your payment.</p>
+  <p style="margin:0 0 12px;">Amount paid: {{amount_collected}}<br>
+  Collected on: {{collected_date}}<br>
+  Pending amount: {{pending_amount}}</p>
+  <p style="margin:0 0 12px;">Name: {{student_name}}<br>
+  Place: {{place}}<br>
+  Phone: {{phone}}</p>
+  <p style="margin:0 0 12px;">Please keep this note for your records.<br>
+  <a href="https://markex-academy.com/" style="color:#1c1917;">https://markex-academy.com/</a></p>
+  <p style="margin:0;">MARKEX Trading Academy<br>{{support_email}}</p>
+</body>
+</html>`;
 
 export const SYSTEM_TEMPLATES = [
   {
@@ -236,7 +253,7 @@ export const SYSTEM_TEMPLATES = [
   {
     slug: 'registration-confirmation',
     name: 'MARKEX — Registration Confirmation',
-    subject: 'Welcome to MARKEX Trading Academy — Registration Received',
+    subject: WELCOME_SUBJECT,
     category: 'operational' as const,
     textBody: confirmationText + FOOTER_TEXT,
     htmlBody: htmlFromText(confirmationText + FOOTER_TEXT),
@@ -259,11 +276,11 @@ export const SYSTEM_TEMPLATES = [
   },
   {
     slug: 'payment-receipt',
-    name: 'BITVION — Payment receipt',
-    subject: 'Your payment record — {{student_name}}',
+    name: 'MARKEX — Payment receipt',
+    subject: RECEIPT_SUBJECT,
     category: 'operational' as const,
-    textBody: receiptText + FOOTER_TEXT,
-    htmlBody: htmlFromText(receiptText + FOOTER_TEXT),
+    textBody: receiptText,
+    htmlBody: receiptHtml,
   },
   {
     slug: 'whatsapp-invitation',

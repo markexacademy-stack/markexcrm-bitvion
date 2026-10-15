@@ -1,0 +1,26 @@
+[build]
+  command = "npm run build -w client"
+  publish = "client/dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["mongoose"]
+  # Mumbai, next to a MongoDB Atlas cluster in AWS ap-south-1.
+  region = "ap-south-1"
+
+[functions."api"]
+  timeout = 26
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

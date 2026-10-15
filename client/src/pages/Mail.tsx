@@ -1,5 +1,7 @@
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
+import { useAuth } from '@/auth/AuthContext';
 import { Badge, Card, Empty, PageHeader, Spinner, formatWhen, useTitle } from '@/components/ui';
 
 interface Job {
@@ -13,13 +15,14 @@ interface Job {
 
 export function MailPage() {
   useTitle('Mail');
+  const { can } = useAuth();
   const jobs = useQuery({ queryKey: ['mail'], queryFn: () => api<{ data: Job[] }>('/api/email-jobs?pageSize=50') });
   if (jobs.isLoading) return <Spinner />;
   const rows = jobs.data?.data || [];
 
   return (
     <div>
-      <PageHeader title="Mail" subtitle="A receipt is queued when a student is added or updated. Sent means the email provider accepted it." />
+      <PageHeader title="Mail" subtitle="Sent means the mail server accepted the message. It does not confirm inbox placement." actions={can('settings.manage') ? <Link className="text-sm font-medium text-sky-800 underline" to="/mail/diagnostics">Email diagnostics</Link> : null} />
       {!rows.length ? <Empty title="No emails yet" body="Add a student and the receipt will appear here." /> : (
         <>
         <ul className="space-y-3 md:hidden">

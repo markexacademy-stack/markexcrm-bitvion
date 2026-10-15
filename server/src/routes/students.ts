@@ -98,8 +98,9 @@ router.post('/', requirePermission('students.edit'), validate(envelope({
     collectedDate: req.body.collectedDate ? new Date(`${req.body.collectedDate}T00:00:00.000Z`) : undefined,
   });
   await ensureConsent({ email, studentId: student._id.toString(), marketing: req.body.marketingConsent, source: 'manual' });
+  let receipt: { sent: boolean; error?: string } | undefined;
   if (req.body.sendReceipt !== false) {
-    await queuePaymentReceipt(student, req.user!._id.toString());
+    receipt = await queuePaymentReceipt(student, req.user!._id.toString());
     student.welcomeQueuedAt = new Date();
     student.lastCommunicationAt = new Date();
     await student.save();
@@ -125,7 +126,7 @@ router.post('/', requirePermission('students.edit'), validate(envelope({
     await student.save();
   }
   await recordAudit({ req, action: 'student.created', category: 'admin', entityType: 'Student', entityId: student._id.toString(), studentId: student._id.toString() });
-  res.status(201).json(student);
+  res.status(201).json({ ...student.toObject(), receiptSent: receipt?.sent ?? false, receiptError: receipt?.error });
 }));
 
 router.get('/:id', requirePermission('students.view'), asyncHandler(async (req, res) => {
@@ -166,13 +167,35 @@ router.patch('/:id', requirePermission('students.edit'), validate(envelope({
   if (typeof req.body.marketingConsent === 'boolean') student.marketingConsent = req.body.marketingConsent;
   if (req.body.consentStatus) student.consentStatus = req.body.consentStatus;
   await student.save();
+  let receipt: { sent: boolean; error?: string } | undefined;
   if (req.body.sendReceipt) {
-    await queuePaymentReceipt(student, req.user!._id.toString());
+    receipt = await queuePaymentReceipt(student, req.user!._id.toString());
     student.lastCommunicationAt = new Date();
     await student.save();
   }
   await recordAudit({ req, action: 'student.updated', category: 'admin', entityType: 'Student', entityId: student._id.toString(), studentId: student._id.toString(), metadata: { nameChanged: before !== student.fullName } });
-  res.json(student);
+  res.json({ ...student.toObject(), receiptSent: receipt?.sent, receiptError: receipt?.error });
+}));
+
+router.delete('/:id', requirePermission('students.edit'), validate(envelope({
+  params: z.object({ id: objectId }),
+})), asyncHandler(async (req, res) => {
+  const student = await Student.findByIdAndDelete(req.params.id);
+  if (!student) throw notFound('Student not found.');
+  await BatchEnrollment.deleteMany({ studentId: student._id });
+  await EmailJob.updateMany(
+    { studentId: student._id, status: { $in: ['queued', 'sending'] } },
+    { $set: { status: 'cancelled', lastError: 'Cancelled because the student was deleted.' } },
+  );
+  await recordAudit({
+    req,
+    action: 'student.deleted',
+    category: 'admin',
+    entityType: 'Student',
+    entityId: student._id.toString(),
+    metadata: { fullName: student.fullName },
+  });
+  res.status(204).end();
 }));
 
 router.post('/:id/notes', requirePermission('students.edit'), validate(envelope({

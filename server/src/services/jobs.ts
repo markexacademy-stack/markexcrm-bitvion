@@ -33,6 +33,10 @@ export async function processEmailQueue(): Promise<void> {
 export function startJobWorker(): void {
   if (process.env.DISABLE_JOB_WORKER === 'true') return;
   if (timer) return;
+  void EmailJob.updateMany(
+    { status: 'queued', lastError: /ETIMEDOUT|ECONNREFUSED|ECONNRESET|Greeting never received/i },
+    { $set: { scheduledFor: new Date() } },
+  ).catch(() => undefined);
   timer = setInterval(() => {
     void processEmailQueue().catch((error) => {
       console.error(JSON.stringify({ level: 'error', message: 'Job worker failed', detail: error instanceof Error ? error.message : 'unknown' }));

@@ -29,7 +29,14 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(path, { ...init, headers, credentials: 'include' });
   if (response.status === 204) return undefined as T;
   const text = await response.text();
-  const data = text ? JSON.parse(text) as { error?: { message?: string; code?: string; details?: unknown } } : null;
+  let data: { error?: { message?: string; code?: string; details?: unknown } } | null = null;
+  if (text) {
+    try {
+      data = JSON.parse(text) as { error?: { message?: string; code?: string; details?: unknown } };
+    } catch {
+      throw new ApiError(response.status, 'The CRM API did not answer. The page is published, but sign-in has no server on this site.');
+    }
+  }
   if (!response.ok) {
     throw new ApiError(response.status, data?.error?.message || 'The request could not be completed.', data?.error?.code, data?.error?.details);
   }

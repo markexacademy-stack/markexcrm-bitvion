@@ -25,6 +25,7 @@ export function StudentsPage() {
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   const save = useMutation({
     mutationFn: () => {
@@ -43,15 +44,41 @@ export function StudentsPage() {
         ? api(`/api/students/${editing}`, { method: 'PATCH', body: JSON.stringify(payload) })
         : api('/api/students', { method: 'POST', body: JSON.stringify(payload) });
     },
-    onSuccess: async () => {
-      setError('');
-      setForm(empty);
+    onSuccess: async (saved) => {
+      const result = saved as { receiptSent?: boolean; receiptError?: string };
       setEditing('');
+      setForm(empty);
+      if (result.receiptSent) {
+        setError('');
+        setNotice('Gmail accepted the payment receipt. Acceptance does not confirm that it reached the inbox.');
+      } else if (result.receiptError) {
+        setNotice('');
+        setError(result.receiptError);
+      } else {
+        setError('');
+        setNotice('');
+      }
       await queryClient.invalidateQueries({ queryKey: ['students'] });
       await queryClient.invalidateQueries({ queryKey: ['overview'] });
       await queryClient.invalidateQueries({ queryKey: ['mail'] });
     },
     onError: (reason) => setError(reason instanceof ApiError ? reason.message : 'The student could not be saved.'),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => api(`/api/students/${id}`, { method: 'DELETE' }),
+    onSuccess: async (_result, id) => {
+      if (editing === id) {
+        setEditing('');
+        setForm(empty);
+      }
+      setError('');
+      setNotice('The student was deleted. Collected and pending amounts no longer appear on the dashboard.');
+      await queryClient.invalidateQueries({ queryKey: ['students'] });
+      await queryClient.invalidateQueries({ queryKey: ['overview'] });
+      await queryClient.invalidateQueries({ queryKey: ['mail'] });
+    },
+    onError: (reason) => setError(reason instanceof ApiError ? reason.message : 'The student could not be deleted.'),
   });
 
   function onSubmit(event: FormEvent) {
@@ -73,9 +100,15 @@ export function StudentsPage() {
     });
   }
 
+  function onDelete(student: Student) {
+    const confirmed = window.confirm(`Delete ${student.fullName}? Their collected and pending amounts will be removed from the dashboard.`);
+    if (confirmed) remove.mutate(student._id);
+  }
+
   return (
     <div>
-      <PageHeader title="Students" subtitle="Add the student, the amount collected, the pending amount, and the collected date. A receipt email is queued automatically." />
+      <PageHeader title="Students" subtitle="Add the student and the payment. The receipt is sent immediately after the record is saved." />
+      {notice ? <div className="mb-4"><Alert tone="emerald">{notice}</Alert></div> : null}
       {error ? <div className="mb-4"><Alert>{error}</Alert></div> : null}
       <Card className="mb-4 p-4">
         <form className="grid gap-3 md:grid-cols-2" onSubmit={onSubmit}>
@@ -94,7 +127,7 @@ export function StudentsPage() {
           <Field label="Pending amount (₹)"><input className="field" inputMode="decimal" value={form.pendingAmount} onChange={(event) => setForm({ ...form, pendingAmount: event.target.value })} required /></Field>
           <Field label="Collected date"><input className="field" type="date" value={form.collectedDate} onChange={(event) => setForm({ ...form, collectedDate: event.target.value })} /></Field>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-            <Button type="submit" disabled={save.isPending} className="w-full sm:w-auto">{save.isPending ? 'Saving…' : editing ? 'Update student' : 'Add student'}</Button>
+            <Button type="submit" disabled={save.isPending} className="w-full sm:w-auto">{save.isPending ? 'Sending…' : editing ? 'Update student' : 'Add student'}</Button>
             {editing ? <button className="btn-secondary w-full sm:w-auto" type="button" onClick={() => { setEditing(''); setForm(empty); }}>Cancel</button> : null}
           </div>
         </form>
@@ -109,7 +142,10 @@ export function StudentsPage() {
                   <p className="font-medium">{student.fullName}</p>
                   <p className="text-xs text-stone-500">{student.gender} · {student.place || '—'}</p>
                 </div>
-                <button className="shrink-0 text-sm font-medium text-sky-700" type="button" onClick={() => edit(student)}>Edit</button>
+                <div className="flex shrink-0 gap-3">
+                  <button className="text-sm font-medium text-sky-700" type="button" onClick={() => edit(student)}>Edit</button>
+                  <button className="text-sm font-medium text-red-700" type="button" onClick={() => onDelete(student)} disabled={remove.isPending}>Delete</button>
+                </div>
               </div>
               <p className="mt-2 break-all text-sm">{student.email}</p>
               <p className="text-sm text-stone-600">{student.phone || '—'}</p>
@@ -139,7 +175,10 @@ export function StudentsPage() {
                   <td className="px-3 py-3">{inr(student.amountCollected)}</td>
                   <td className="px-3 py-3">{inr(student.pendingAmount)}</td>
                   <td className="px-3 py-3">{dayLabel(student.collectedDate)}</td>
-                  <td className="px-3 py-3"><button className="text-sky-700" type="button" onClick={() => edit(student)}>Edit</button></td>
+                  <td className="px-3 py-3">
+                    <button className="mr-3 text-sky-700" type="button" onClick={() => edit(student)}>Edit</button>
+                    <button className="text-red-700" type="button" onClick={() => onDelete(student)} disabled={remove.isPending}>Delete</button>
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -48,7 +48,7 @@ export function getConfig(): AppConfig {
     mongodbUri: process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/markex_crm',
     clientOrigins: clientOrigin.split(',').map((item) => item.trim()).filter(Boolean),
     appPublicUrl: (process.env.APP_PUBLIC_URL || clientOrigin).replace(/\/$/, ''),
-    trustProxy: process.env.TRUST_PROXY === 'true',
+    trustProxy: process.env.TRUST_PROXY === 'true' || Boolean(process.env.NETLIFY),
     jwtSecret,
     webhookSecret: process.env.WEBHOOK_SECRET?.trim() || '',
     adminEmail: process.env.ADMIN_EMAIL?.trim().toLowerCase() || '',
@@ -64,7 +64,7 @@ export function getConfig(): AppConfig {
     googleClientEmail: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim() || '',
     googlePrivateKey: (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
     errorWebhookUrl: process.env.ERROR_WEBHOOK_URL?.trim() || '',
-    serveStatic: nodeEnv === 'production',
+    serveStatic: nodeEnv === 'production' && !process.env.NETLIFY,
   };
   return cached;
 }

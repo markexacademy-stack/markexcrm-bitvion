@@ -195,4 +195,50 @@ describe('MARKEX CRM API', () => {
     const updated = await CommunicationConsent.findOne({ email: 'asha@example.com' });
     expect(updated?.unsubscribedAll).toBe(true);
   });
+
+  it('restricts email diagnostics to an administrator and rate-limits test sends', async () => {
+    const anonymous = await request(app).get('/api/email-diagnostics');
+    expect(anonymous.status).toBe(401);
+    const headers = await cookie();
+    const report = await request(app).get('/api/email-diagnostics').set('Cookie', headers).set('x-csrf-token', csrf);
+    expect(report.status).toBe(200);
+    expect(report.body.smtpPass).toBeUndefined();
+    expect(report.body.configuration.smtpPass).toBeUndefined();
+    expect(JSON.stringify(report.body)).not.toMatch(/swcnexpq|ghp_|BEGIN PRIVATE KEY/);
+    expect(report.body.configuration.smtpPassSet).toBe(false);
+    expect(report.body.templates.receipt.subject).toBe('Payment Receipt – MARKEX Trading Academy');
+    expect(report.body.templates.welcome.subject).toBe('Welcome to MARKEX Trading Academy');
+    const staffLogin = await request(app).post('/api/auth/login').send({ email: 'staff@markex-academy.test', password: 'Staff-Password-1' });
+    const denied = await request(app).get('/api/email-diagnostics').set('Cookie', staffLogin.headers['set-cookie']).set('x-csrf-token', staffLogin.body.csrfToken);
+    expect(denied.status).toBe(403);
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const rejected = await request(app).post('/api/email-diagnostics/test').set('Cookie', headers).set('x-csrf-token', csrf).send({ to: 'not-an-email' });
+      expect(rejected.status).toBe(400);
+    }
+    const limited = await request(app).post('/api/email-diagnostics/test').set('Cookie', headers).set('x-csrf-token', csrf).send({ to: 'person@example.com' });
+    expect(limited.status).toBe(429);
+  });
+
+  it('deletes a student and cancels a receipt that has not been sent', async () => {
+    const headers = await cookie();
+    const created = await request(app).post('/api/students').set('Cookie', headers).set('x-csrf-token', csrf).send({
+      fullName: 'Delete Me',
+      email: 'delete-me@example.com',
+      phone: '9000000099',
+      gender: 'Other',
+      place: 'Kochi',
+      amountCollected: 1000,
+      pendingAmount: 0,
+      sendReceipt: true,
+    });
+    expect(created.status).toBe(201);
+    const { EmailJob, Student } = await import('../src/models');
+    const removed = await request(app).delete(`/api/students/${created.body._id}`).set('Cookie', headers).set('x-csrf-token', csrf);
+    expect(removed.status).toBe(204);
+    expect(await Student.findById(created.body._id)).toBeNull();
+    const job = await EmailJob.findOne({ studentId: created.body._id });
+    if (job && job.status !== 'sent') expect(job.status).toBe('cancelled');
+    const list = await request(app).get('/api/students?pageSize=100').set('Cookie', headers).set('x-csrf-token', csrf);
+    expect(list.body.data.some((student: { email: string }) => student.email === 'delete-me@example.com')).toBe(false);
+  });
 });

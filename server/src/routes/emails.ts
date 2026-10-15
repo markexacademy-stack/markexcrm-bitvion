@@ -1,14 +1,18 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
+import { emailProviderConfigured, getConfig, smtpConfigured } from '../config';
 import { asyncHandler } from '../lib/asyncHandler';
+import { isValidEmail, normalizeEmail } from '../lib/crypto';
 import { badRequest, notFound } from '../lib/http';
+import { FROM_NAME, RECEIPT_SUBJECT, WELCOME_SUBJECT, redactSecrets } from '../lib/mailPolicy';
 import { getPage, pageResult } from '../lib/time';
 import { envelope, objectId } from '../lib/schema';
 import { requireAnyPermission, requirePermission } from '../middleware/auth';
 import { validate } from '../middleware/validate';
-import { EmailCampaign, EmailJob, EmailTemplate } from '../models';
+import { EmailCampaign, EmailEvent, EmailJob, EmailTemplate } from '../models';
 import { recordAudit } from '../services/audit';
-import { previewTemplate, queueEmail, templateVars } from '../services/email';
+import { previewTemplate, queueEmail, sendDiagnosticMessage, templateVars, testSmtpConnection } from '../services/email';
 import { createQueuedCampaign, resolveRecipients } from '../services/sharing';
 
 const router = Router();
@@ -187,6 +191,82 @@ router.get('/email-jobs', requirePermission('communications.send'), validate(env
     EmailJob.countDocuments(filter),
   ]);
   res.json(pageResult(data, total, page, pageSize));
+}));
+
+const diagnosticLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMITED', message: 'Too many email checks. Try again in a few minutes.', details: null } },
+});
+
+router.get('/email-diagnostics', requirePermission('settings.manage'), asyncHandler(async (_req, res) => {
+  const config = getConfig();
+  const [receipt, welcome, lastAccepted, recent, bounceCount] = await Promise.all([
+    EmailTemplate.findOne({ slug: 'payment-receipt' }).select('subject htmlBody textBody'),
+    EmailTemplate.findOne({ slug: 'registration-confirmation' }).select('subject htmlBody textBody'),
+    EmailJob.findOne({ status: 'sent' }).sort({ sentAt: -1 }).select('sentAt subject'),
+    EmailJob.find({ lastError: { $exists: true, $ne: '' } }).sort({ updatedAt: -1 }).limit(8).select('status attempts lastError scheduledFor updatedAt'),
+    EmailEvent.countDocuments({ type: 'bounced' }),
+  ]);
+  const secrets = [config.smtpPass, config.jwtSecret, config.resendApiKey].filter((value) => value.length >= 4);
+  res.json({
+    sender: config.smtpUser || null,
+    fromName: FROM_NAME,
+    replyTo: config.smtpUser || null,
+    method: smtpConfigured() ? 'gmail-smtp' : config.resendApiKey ? 'resend' : 'not-configured',
+    host: smtpConfigured() ? config.smtpHost : null,
+    port: smtpConfigured() ? config.smtpPort : null,
+    encryption: !smtpConfigured() ? null : config.smtpPort === 465 ? 'tls' : 'starttls',
+    providerReady: emailProviderConfigured(),
+    configuration: {
+      smtpUserSet: Boolean(config.smtpUser),
+      smtpPassSet: Boolean(config.smtpPass),
+      emailFromSet: Boolean(config.emailFrom),
+    },
+    lastAcceptedAt: lastAccepted?.sentAt || null,
+    recentErrors: recent.map((job) => ({
+      status: job.status,
+      attempts: job.attempts,
+      retryAt: job.status === 'queued' ? job.scheduledFor : null,
+      error: redactSecrets(job.lastError || '', secrets),
+      at: job.updatedAt,
+    })),
+    bounceCount,
+    bounceNote: 'Bounce rows are recorded when SMTP rejects an address or when a provider webhook reports a bounce. Gmail does not send a bounce feed for personal SMTP. SMTP acceptance is not inbox placement.',
+    templates: {
+      receipt: {
+        present: Boolean(receipt),
+        subjectMatches: receipt?.subject === RECEIPT_SUBJECT,
+        subject: receipt?.subject || '',
+        htmlReady: Boolean(receipt?.htmlBody && receipt.htmlBody.includes('{{student_name}}') && receipt.htmlBody.includes('{{amount_collected}}')),
+        textReady: Boolean(receipt?.textBody && receipt.textBody.includes('{{amount_collected}}')),
+      },
+      welcome: {
+        present: Boolean(welcome),
+        subjectMatches: welcome?.subject === WELCOME_SUBJECT,
+        subject: welcome?.subject || '',
+        htmlReady: Boolean(welcome?.htmlBody),
+        textReady: Boolean(welcome?.textBody),
+      },
+    },
+    guidance: 'In Gmail, open the message, choose the three dots, then Show original. Check SPF, DKIM, and DMARC. This page cannot see whether Gmail filed the message in Inbox or Spam.',
+  });
+}));
+
+router.post('/email-diagnostics/connection', requirePermission('settings.manage'), diagnosticLimiter, asyncHandler(async (_req, res) => {
+  const result = await testSmtpConnection();
+  res.json(result);
+}));
+
+router.post('/email-diagnostics/test', requirePermission('settings.manage'), diagnosticLimiter, validate(envelope({
+  body: z.object({ to: z.string().trim().email().max(254) }),
+})), asyncHandler(async (req, res) => {
+  const to = normalizeEmail(req.body.to);
+  if (!isValidEmail(to)) throw badRequest('Enter a valid recipient email address.');
+  const result = await sendDiagnosticMessage(to, req.user?._id.toString());
+  res.json(result);
 }));
 
 export default router;
