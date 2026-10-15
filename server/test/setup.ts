@@ -1,0 +1,9 @@
+process.env.NODE_ENV = 'test';
+process.env.JWT_SECRET = 'test-jwt-secret-which-is-long-enough';
+process.env.WEBHOOK_SECRET = 'test-webhook-secret-long-enough-value';
+process.env.CLIENT_ORIGIN = 'http://localhost:5173';
+process.env.APP_PUBLIC_URL = 'http://localhost:5173';
+process.env.ADMIN_EMAIL = 'admin@markex-academy.test';
+process.env.ADMIN_PASSWORD = 'ChangeMe-Admin-1';
+process.env.ADMIN_NAME = 'MARKEX Admin';
+process.env.DISABLE_JOB_WORKER = 'true';

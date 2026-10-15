@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { @apply antialiased; }
+  body { @apply overflow-x-hidden bg-stone-100 text-stone-900 font-sans; }
+  :focus-visible { @apply outline-none ring-2 ring-sky-600 ring-offset-2; }
+}
+
+@layer components {
+  .btn { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply btn bg-sky-600 text-white hover:bg-sky-500; }
+  .btn-secondary { @apply btn border border-stone-300 bg-white text-stone-800 hover:bg-stone-50; }
+  .btn-ghost { @apply btn text-stone-700 hover:bg-stone-100; }
+  .btn-danger { @apply btn bg-red-700 text-white hover:bg-red-800; }
+  .field { @apply min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-base text-stone-900 shadow-sm placeholder:text-stone-400 sm:text-sm; }
+  .card { @apply rounded-2xl border border-stone-200/80 bg-white shadow-card; }
+  .label { @apply mb-1.5 block text-sm font-medium text-stone-700; }
+}
+
+@media print {
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { position: absolute; inset: 0; background: white; }
+}
