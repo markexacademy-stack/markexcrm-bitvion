@@ -80,7 +80,8 @@ export function requirePermission(...required: Permission[]) {
 }
 
 export function sessionCookieOptions() {
-  const secure = getConfig().nodeEnv === 'production';
+  const config = getConfig();
+  const secure = config.nodeEnv === 'production' || Boolean(process.env.NETLIFY);
   return {
     httpOnly: true,
     secure,

@@ -35,19 +35,36 @@ export async function ensureSeed(): Promise<void> {
   }
   if (settingsChanged) await settings.save();
   await User.updateOne({ name: 'MARKEX Admin' }, { $set: { name: 'Bitvion Admin' } });
-  if ((await User.countDocuments()) > 0) return;
   if (!config.adminEmail || !config.adminPassword) {
-    console.warn('No CRM users exist. Set ADMIN_EMAIL and ADMIN_PASSWORD before the first sign-in.');
+    if ((await User.countDocuments()) === 0) {
+      console.warn('No CRM users exist. Set ADMIN_EMAIL and ADMIN_PASSWORD before the first sign-in.');
+    }
     return;
   }
   if (config.adminPassword.length < 4) throw new Error('ADMIN_PASSWORD must be at least 4 characters.');
-  await User.create({
-    email: config.adminEmail.trim().toLowerCase(),
-    passwordHash: await bcrypt.hash(config.adminPassword, 12),
-    name: config.adminName,
-    role: 'admin',
-    permissions: [],
-    isActive: true,
-  });
-  console.log(`Created administrator account for ${config.adminEmail}`);
+  const email = config.adminEmail.trim().toLowerCase();
+  const passwordHash = await bcrypt.hash(config.adminPassword, 12);
+  const existing = await User.findOne({ email }).select('+passwordHash');
+  if (!existing) {
+    if ((await User.countDocuments()) > 0) return;
+    await User.create({
+      email,
+      passwordHash,
+      name: config.adminName,
+      role: 'admin',
+      permissions: [],
+      isActive: true,
+    });
+    console.log(`Created administrator account for ${email}`);
+    return;
+  }
+  const matches = await bcrypt.compare(config.adminPassword, existing.passwordHash || '');
+  if (!matches || existing.name !== config.adminName || existing.role !== 'admin' || !existing.isActive) {
+    existing.passwordHash = passwordHash;
+    existing.name = config.adminName || existing.name;
+    existing.role = 'admin';
+    existing.isActive = true;
+    await existing.save();
+    console.log(`Updated administrator account for ${email}`);
+  }
 }

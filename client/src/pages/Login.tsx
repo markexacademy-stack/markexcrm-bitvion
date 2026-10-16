@@ -18,7 +18,7 @@ export function LoginPage() {
     setPending(true);
     setError('');
     try {
-      await login(email, password);
+      await login(email.trim(), password);
     } catch (reason) {
       setError(reason instanceof ApiError ? reason.message : 'Sign-in failed.');
     } finally {
