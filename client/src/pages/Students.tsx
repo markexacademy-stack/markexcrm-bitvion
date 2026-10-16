@@ -50,7 +50,7 @@ export function StudentsPage() {
       setForm(empty);
       if (result.receiptSent) {
         setError('');
-        setNotice('Gmail accepted the payment receipt. Acceptance does not confirm that it reached the inbox.');
+        setNotice('Gmail accepted the welcome and payment receipt. Acceptance does not confirm that it reached the inbox.');
       } else if (result.receiptError) {
         setNotice('');
         setError(result.receiptError);
@@ -107,7 +107,7 @@ export function StudentsPage() {
 
   return (
     <div>
-      <PageHeader title="Students" subtitle="Add the student and the payment. The receipt is sent immediately after the record is saved." />
+      <PageHeader title="Students" subtitle="Add the student and the payment. A welcome message with the payment receipt is sent immediately after save." />
       {notice ? <div className="mb-4"><Alert tone="emerald">{notice}</Alert></div> : null}
       {error ? <div className="mb-4"><Alert>{error}</Alert></div> : null}
       <Card className="mb-4 p-4">

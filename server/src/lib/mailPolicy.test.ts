@@ -8,10 +8,11 @@ import { SYSTEM_TEMPLATES } from '../services/systemTemplates';
 const receiptHtml = `<p>Hello {{student_name}},</p><p>Amount paid: {{amount_collected}}</p><p>Received on {{collected_date}}</p><p>Pending: {{pending_amount}}</p>`;
 
 describe('mail policy', () => {
-  it('uses the receipt subject and a separate welcome subject', () => {
-    expect(RECEIPT_SUBJECT).toBe('Payment Receipt – MARKEX Trading Academy');
+  it('uses a combined welcome and payment receipt subject', () => {
+    expect(RECEIPT_SUBJECT).toBe('Welcome to MARKEX Trading Academy – Payment Receipt');
     expect(WELCOME_SUBJECT).toBe('Welcome to MARKEX Trading Academy');
-    expect(RECEIPT_SUBJECT.toLowerCase()).not.toContain('welcome');
+    expect(RECEIPT_SUBJECT.toLowerCase()).toContain('welcome');
+    expect(RECEIPT_SUBJECT.toLowerCase()).toContain('payment');
   });
 
   it('keeps the sender and reply-to on the Gmail mailbox', () => {
@@ -30,17 +31,18 @@ describe('mail policy', () => {
     expect(key).not.toBe(paymentReceiptKey('student-1', 4000, 1000, '15/10/2026'));
   });
 
-  it('keeps the receipt template separate from the welcome template', () => {
+  it('sends a professional welcome with the payment receipt details', () => {
     const receipt = SYSTEM_TEMPLATES.find((item) => item.slug === 'payment-receipt');
     const welcome = SYSTEM_TEMPLATES.find((item) => item.slug === 'registration-confirmation');
     expect(receipt?.subject).toBe(RECEIPT_SUBJECT);
     expect(welcome?.subject).toBe(WELCOME_SUBJECT);
     expect(receipt?.htmlBody).toContain('https://markex-academy.com/');
-    expect(receipt?.htmlBody).toContain('width="220"');
-    expect(receipt?.htmlBody.toLowerCase()).not.toContain('forex');
-    expect(receipt?.htmlBody.toLowerCase()).not.toContain('welcome');
+    expect(receipt?.htmlBody).toContain('width="280"');
+    expect(receipt?.htmlBody.toLowerCase()).toContain('welcome');
+    expect(receipt?.htmlBody).toContain('Payment received');
+    expect(receipt?.htmlBody).toContain('{{amount_collected}}');
     expect(receipt?.textBody).toContain('Amount paid');
-    expect(receipt?.textBody.toLowerCase()).not.toContain('welcome');
+    expect(receipt?.textBody.toLowerCase()).toContain('welcome');
   });
 
   it('escapes payment details placed in HTML', () => {

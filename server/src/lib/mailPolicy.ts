@@ -6,7 +6,7 @@ export function paymentReceiptKey(studentId: string, amountCollected: number, pe
   return `receipt:${studentId}:${amountCollected}:${pendingAmount}:${collectedDate}`;
 }
 
-export const RECEIPT_SUBJECT = 'Payment Receipt – MARKEX Trading Academy';
+export const RECEIPT_SUBJECT = 'Welcome to MARKEX Trading Academy – Payment Receipt';
 export const WELCOME_SUBJECT = 'Welcome to MARKEX Trading Academy';
 export const FROM_NAME = 'MARKEX Trading Academy';
 
