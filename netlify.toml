@@ -8,11 +8,7 @@
 [functions]
   node_bundler = "esbuild"
   external_node_modules = ["mongoose"]
-  # Mumbai, next to a MongoDB Atlas cluster in AWS ap-south-1.
-  region = "ap-south-1"
-
-[functions."api"]
-  timeout = 26
+  # Do not set region here. Free Netlify plans reject function region overrides.
 
 [[redirects]]
   from = "/api/*"
