@@ -614,6 +614,112 @@ const expenseSchema = new Schema<IExpense>(
   { timestamps: true },
 );
 
+export type TradingPeriod = 'weekly' | 'monthly' | 'quarterly';
+
+export interface ITradingInvestor {
+  _id: Types.ObjectId;
+  fullName: string;
+  phone?: string;
+  email?: string;
+  capital: number;
+  joinedOn: Date;
+  notes: string;
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const tradingInvestorSchema = new Schema<ITradingInvestor>(
+  {
+    fullName: { type: String, required: true, trim: true },
+    phone: { type: String, trim: true },
+    email: { type: String, lowercase: true, trim: true },
+    capital: { type: Number, required: true, min: 0 },
+    joinedOn: { type: Date, required: true },
+    notes: { type: String, default: '', trim: true },
+    active: { type: Boolean, default: true },
+  },
+  { timestamps: true },
+);
+
+export interface ITradingProfit {
+  _id: Types.ObjectId;
+  period: TradingPeriod;
+  periodDate: Date;
+  label: string;
+  grossProfit: number;
+  investorSharePercent: number;
+  companySharePercent: number;
+  investorPool: number;
+  companyProfit: number;
+  note: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const tradingProfitSchema = new Schema<ITradingProfit>(
+  {
+    period: { type: String, enum: ['weekly', 'monthly', 'quarterly'], required: true, index: true },
+    periodDate: { type: Date, required: true, index: true },
+    label: { type: String, required: true, trim: true },
+    grossProfit: { type: Number, required: true, min: 0 },
+    investorSharePercent: { type: Number, required: true, min: 0, max: 100 },
+    companySharePercent: { type: Number, required: true, min: 0, max: 100 },
+    investorPool: { type: Number, required: true, min: 0 },
+    companyProfit: { type: Number, required: true, min: 0 },
+    note: { type: String, default: '', trim: true },
+  },
+  { timestamps: true },
+);
+
+export interface ITradingPayout {
+  _id: Types.ObjectId;
+  profitId: Types.ObjectId;
+  investorId: Types.ObjectId;
+  investorName: string;
+  period: TradingPeriod;
+  periodDate: Date;
+  capitalAtPayout: number;
+  amount: number;
+  status: 'recorded' | 'paid';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const tradingPayoutSchema = new Schema<ITradingPayout>(
+  {
+    profitId: { type: ObjectId, ref: 'TradingProfit', required: true, index: true },
+    investorId: { type: ObjectId, ref: 'TradingInvestor', required: true, index: true },
+    investorName: { type: String, required: true, trim: true },
+    period: { type: String, enum: ['weekly', 'monthly', 'quarterly'], required: true },
+    periodDate: { type: Date, required: true, index: true },
+    capitalAtPayout: { type: Number, required: true, min: 0 },
+    amount: { type: Number, required: true, min: 0 },
+    status: { type: String, enum: ['recorded', 'paid'], default: 'recorded' },
+  },
+  { timestamps: true },
+);
+
+export interface ITradingSettings {
+  _id: Types.ObjectId;
+  key: string;
+  weeklyInvestorPercent: number;
+  monthlyInvestorPercent: number;
+  quarterlyInvestorPercent: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const tradingSettingsSchema = new Schema<ITradingSettings>(
+  {
+    key: { type: String, required: true, unique: true },
+    weeklyInvestorPercent: { type: Number, default: 50, min: 0, max: 100 },
+    monthlyInvestorPercent: { type: Number, default: 50, min: 0, max: 100 },
+    quarterlyInvestorPercent: { type: Number, default: 10, min: 0, max: 100 },
+  },
+  { timestamps: true },
+);
+
 export const User = mongoose.model<IUser>('User', userSchema);
 export const Student = mongoose.model<IStudent>('Student', studentSchema);
 export const RegistrationForm = mongoose.model<IRegistrationForm>('RegistrationForm', registrationFormSchema);
@@ -632,3 +738,7 @@ export const CommunicationConsent = mongoose.model<ICommunicationConsent>('Commu
 export const AuditLog = mongoose.model<IAuditLog>('AuditLog', auditLogSchema);
 export const ApplicationSettings = mongoose.model<IApplicationSettings>('ApplicationSettings', applicationSettingsSchema);
 export const Expense = mongoose.model<IExpense>('Expense', expenseSchema);
+export const TradingInvestor = mongoose.model<ITradingInvestor>('TradingInvestor', tradingInvestorSchema);
+export const TradingProfit = mongoose.model<ITradingProfit>('TradingProfit', tradingProfitSchema);
+export const TradingPayout = mongoose.model<ITradingPayout>('TradingPayout', tradingPayoutSchema);
+export const TradingSettings = mongoose.model<ITradingSettings>('TradingSettings', tradingSettingsSchema);

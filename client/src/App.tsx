@@ -8,6 +8,7 @@ import { StudentsPage } from '@/pages/Students';
 import { SpendingPage } from '@/pages/Spending';
 import { MailPage } from '@/pages/Mail';
 import { MailDiagnosticsPage } from '@/pages/MailDiagnostics';
+import { TradingPage } from '@/pages/Trading';
 
 function Protected() {
   const { user, loading } = useAuth();
@@ -25,6 +26,7 @@ export function App() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/students" element={<StudentsPage />} />
         <Route path="/spending" element={<SpendingPage />} />
+        <Route path="/trading" element={<TradingPage />} />
         <Route path="/mail" element={<MailPage />} />
         <Route path="/mail/diagnostics" element={<MailDiagnosticsPage />} />
         <Route path="*" element={<NotFoundPage />} />
