@@ -91,11 +91,11 @@ export function DashboardPage() {
         </section>
         <section>
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="font-medium">SN Trading</h2>
+            <h2 className="font-medium">MX Trading</h2>
             <Link className="text-sm font-medium text-sky-700" to="/trading">Open trading</Link>
           </div>
           {trading.isLoading ? <Spinner /> : null}
-          {trading.error ? <Alert>SN Trading could not be loaded.</Alert> : null}
+          {trading.error ? <Alert>MX Trading could not be loaded.</Alert> : null}
           {trade ? (
             <>
               <div className="grid grid-cols-2 gap-3">

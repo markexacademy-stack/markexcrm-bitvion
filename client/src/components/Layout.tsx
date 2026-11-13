@@ -5,7 +5,7 @@ const items = [
   { to: '/', label: 'Dashboard', end: true },
   { to: '/students', label: 'Students' },
   { to: '/spending', label: 'Spending' },
-  { to: '/trading', label: 'Trading' },
+  { to: '/trading', label: 'MX Trading' },
   { to: '/mail', label: 'Mail' },
 ];
 

@@ -72,7 +72,7 @@ function periodLabel(value: Period) {
 }
 
 export function TradingPage() {
-  useTitle('SN Trading');
+  useTitle('MX Trading');
   const queryClient = useQueryClient();
   const overview = useQuery({ queryKey: ['trading'], queryFn: () => api<Overview>('/api/trading/overview') });
   const [investorForm, setInvestorForm] = useState(emptyInvestor);
@@ -174,7 +174,7 @@ export function TradingPage() {
   });
 
   if (overview.isLoading) return <Spinner />;
-  if (overview.error || !overview.data) return <Alert>SN Trading could not be loaded.</Alert>;
+  if (overview.error || !overview.data) return <Alert>MX Trading could not be loaded.</Alert>;
   const data = overview.data;
   const settings = data.settings;
 
@@ -227,7 +227,7 @@ export function TradingPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="SN Trading"
+        title="MX Trading"
         subtitle={`Investors and company share trading profits. Weekly and monthly use a ${settings.weeklyInvestorPercent}/${100 - settings.weeklyInvestorPercent} split. Quarterly investor share is ${settings.quarterlyInvestorPercent}%.`}
       />
       {notice ? <Alert tone="emerald">{notice}</Alert> : null}
@@ -327,7 +327,7 @@ export function TradingPage() {
             </table>
           </div>
         </>
-      ) : <Empty title="No investors yet" body="Add investors and their capital to start SN Trading payouts." />}
+      ) : <Empty title="No investors yet" body="Add investors and their capital to start MX Trading payouts." />}
 
       <Card className="p-4">
         <h2 className="mb-3 font-medium">Record trading profit</h2>
