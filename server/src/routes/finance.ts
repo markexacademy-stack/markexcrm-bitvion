@@ -16,7 +16,6 @@ const money = z.coerce.number().min(0).max(1000000000);
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid date.');
 
 router.get('/finance/overview', requirePermission('students.view'), asyncHandler(async (_req, res) => {
-  const settings = await getSettings();
   const [studentTotals, spendingTotals, recentStudents, recentExpenses, emailsQueued, emailsSent] = await Promise.all([
     Student.aggregate<{ collected: number; pending: number; count: number }>([
       { $match: { archivedAt: null } },
@@ -31,7 +30,7 @@ router.get('/finance/overview', requirePermission('students.view'), asyncHandler
   const totalRevenue = studentTotals[0]?.collected || 0;
   const totalPending = studentTotals[0]?.pending || 0;
   const totalSpending = spendingTotals[0]?.total || 0;
-  const totalAssets = settings.totalAssets || 0;
+  const totalAssets = totalRevenue;
   res.json({
     students: studentTotals[0]?.count || 0,
     totalRevenue,
@@ -48,13 +47,19 @@ router.get('/finance/overview', requirePermission('students.view'), asyncHandler
 }));
 
 router.get('/finance', requirePermission('students.view'), asyncHandler(async (_req, res) => {
-  const settings = await getSettings();
-  const spending = await Expense.aggregate<{ total: number }>([{ $group: { _id: null, total: { $sum: '$amount' } } }]);
+  const [studentTotals, spending] = await Promise.all([
+    Student.aggregate<{ collected: number }>([
+      { $match: { archivedAt: null } },
+      { $group: { _id: null, collected: { $sum: '$amountCollected' } } },
+    ]),
+    Expense.aggregate<{ total: number }>([{ $group: { _id: null, total: { $sum: '$amount' } } }]),
+  ]);
+  const totalAssets = studentTotals[0]?.collected || 0;
   const totalSpending = spending[0]?.total || 0;
   res.json({
-    totalAssets: settings.totalAssets || 0,
+    totalAssets,
     totalSpending,
-    assetsAfterSpending: (settings.totalAssets || 0) - totalSpending,
+    assetsAfterSpending: totalAssets - totalSpending,
   });
 }));
 

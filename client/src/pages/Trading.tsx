@@ -12,9 +12,11 @@ interface Investor {
   phone?: string;
   email?: string;
   capital: number;
+  sharePercent: number;
   joinedOn: string;
   notes: string;
   active: boolean;
+  payoutTotal: number;
 }
 
 interface Profit {
@@ -36,6 +38,7 @@ interface Payout {
   period: Period;
   periodDate: string;
   capitalAtPayout: number;
+  sharePercent: number;
   amount: number;
   status: 'recorded' | 'paid';
 }
@@ -59,7 +62,7 @@ interface Overview {
   payouts: Payout[];
 }
 
-const emptyInvestor = { fullName: '', phone: '', email: '', capital: '', joinedOn: '', notes: '', active: true };
+const emptyInvestor = { fullName: '', phone: '', email: '', capital: '', sharePercent: '', joinedOn: '', notes: '', active: true };
 const emptyProfit = { period: 'weekly' as Period, periodDate: '', label: '', grossProfit: '', note: '' };
 
 function periodLabel(value: Period) {
@@ -90,6 +93,7 @@ export function TradingPage() {
         phone: investorForm.phone,
         email: investorForm.email,
         capital: Number(investorForm.capital || 0),
+        sharePercent: Number(investorForm.sharePercent || 0),
         joinedOn: investorForm.joinedOn,
         notes: investorForm.notes,
         active: investorForm.active,
@@ -181,6 +185,7 @@ export function TradingPage() {
       phone: item.phone || '',
       email: item.email || '',
       capital: String(item.capital || 0),
+      sharePercent: String(item.sharePercent || 0),
       joinedOn: item.joinedOn ? item.joinedOn.slice(0, 10) : '',
       notes: item.notes || '',
       active: item.active,
@@ -255,6 +260,7 @@ export function TradingPage() {
           <Field label="Phone"><input className="field" value={investorForm.phone} onChange={(event) => setInvestorForm({ ...investorForm, phone: event.target.value })} /></Field>
           <Field label="Email"><input className="field" type="email" value={investorForm.email} onChange={(event) => setInvestorForm({ ...investorForm, email: event.target.value })} /></Field>
           <Field label="Capital invested (₹)"><input className="field" inputMode="decimal" value={investorForm.capital} onChange={(event) => setInvestorForm({ ...investorForm, capital: event.target.value })} required /></Field>
+          <Field label="Profit share %" hint="Each investor can have a different share."><input className="field" inputMode="decimal" value={investorForm.sharePercent} onChange={(event) => setInvestorForm({ ...investorForm, sharePercent: event.target.value })} required /></Field>
           <Field label="Joined on"><input className="field" type="date" value={investorForm.joinedOn} onChange={(event) => setInvestorForm({ ...investorForm, joinedOn: event.target.value })} required /></Field>
           <Field label="Notes"><input className="field" value={investorForm.notes} onChange={(event) => setInvestorForm({ ...investorForm, notes: event.target.value })} /></Field>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end md:col-span-2">
@@ -278,9 +284,10 @@ export function TradingPage() {
                     <p className="font-medium">{item.fullName}</p>
                     <p className="text-xs text-stone-500">{item.active ? 'Active' : 'Inactive'} · Joined {dayLabel(item.joinedOn)}</p>
                   </div>
-                  <p className="font-medium">{inr(item.capital)}</p>
+                  <p className="text-right font-medium">{inr(item.capital)}<span className="block text-xs font-normal text-stone-500">{item.sharePercent}% share</span></p>
                 </div>
                 <p className="mt-2 break-all text-sm text-stone-600">{item.phone || '—'} · {item.email || 'No email'}</p>
+                <p className="mt-1 text-sm text-stone-600">Payouts {inr(item.payoutTotal || 0)}</p>
                 <div className="mt-3 flex gap-4 text-sm">
                   <button className="font-medium text-sky-700" type="button" onClick={() => editInvestor(item)}>Edit</button>
                   <button className="font-medium text-red-700" type="button" onClick={() => {
@@ -291,10 +298,10 @@ export function TradingPage() {
             ))}
           </ul>
           <div className="hidden overflow-auto rounded-2xl border border-stone-200 bg-white md:block">
-            <table className="min-w-[900px] w-full text-left text-sm">
+            <table className="min-w-[1100px] w-full text-left text-sm">
               <thead className="bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
                 <tr>
-                  {['Name', 'Phone', 'Email', 'Capital', 'Joined', 'Status', ''].map((heading) => <th key={heading || 'actions'} className="px-3 py-3 font-medium">{heading}</th>)}
+                  {['Name', 'Phone', 'Email', 'Capital', 'Share', 'Payouts', 'Joined', 'Status', ''].map((heading) => <th key={heading || 'actions'} className="px-3 py-3 font-medium">{heading}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -304,6 +311,8 @@ export function TradingPage() {
                     <td className="px-3 py-3">{item.phone || '—'}</td>
                     <td className="px-3 py-3">{item.email || '—'}</td>
                     <td className="px-3 py-3">{inr(item.capital)}</td>
+                    <td className="px-3 py-3">{item.sharePercent}%</td>
+                    <td className="px-3 py-3">{inr(item.payoutTotal || 0)}</td>
                     <td className="px-3 py-3">{dayLabel(item.joinedOn)}</td>
                     <td className="px-3 py-3">{item.active ? 'Active' : 'Inactive'}</td>
                     <td className="px-3 py-3 text-right">
@@ -322,7 +331,7 @@ export function TradingPage() {
 
       <Card className="p-4">
         <h2 className="mb-3 font-medium">Record trading profit</h2>
-        <p className="mb-3 text-sm text-stone-600">Weekly and monthly profits split {settings.weeklyInvestorPercent}% to investors and {100 - settings.weeklyInvestorPercent}% to the company. Quarterly uses {settings.quarterlyInvestorPercent}% for investors. Investor payouts are shared by capital.</p>
+        <p className="mb-3 text-sm text-stone-600">Weekly and monthly profits split {settings.weeklyInvestorPercent}% to investors and {100 - settings.weeklyInvestorPercent}% to the company. Quarterly uses {settings.quarterlyInvestorPercent}% for investors. Each investor then receives their own share of that investor pool.</p>
         <form className="grid gap-3 md:grid-cols-2" onSubmit={onProfit}>
           <Field label="Period">
             <Select value={profitForm.period} onChange={(event) => setProfitForm({ ...profitForm, period: event.target.value as Period })}>
@@ -373,7 +382,7 @@ export function TradingPage() {
                 <li key={item._id} className="flex items-start justify-between gap-3 border-b border-stone-100 pb-3">
                   <div>
                     <p className="font-medium">{item.investorName}</p>
-                    <p className="text-xs text-stone-500">{periodLabel(item.period)} · {dayLabel(item.periodDate)} · Capital {inr(item.capitalAtPayout)}</p>
+                    <p className="text-xs text-stone-500">{periodLabel(item.period)} · {dayLabel(item.periodDate)} · {item.sharePercent || 0}% share · Capital {inr(item.capitalAtPayout)}</p>
                     <p className="mt-1">{inr(item.amount)} · {item.status === 'paid' ? 'Paid' : 'Recorded'}</p>
                   </div>
                   {item.status !== 'paid' ? (

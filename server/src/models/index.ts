@@ -622,6 +622,7 @@ export interface ITradingInvestor {
   phone?: string;
   email?: string;
   capital: number;
+  sharePercent: number;
   joinedOn: Date;
   notes: string;
   active: boolean;
@@ -635,6 +636,7 @@ const tradingInvestorSchema = new Schema<ITradingInvestor>(
     phone: { type: String, trim: true },
     email: { type: String, lowercase: true, trim: true },
     capital: { type: Number, required: true, min: 0 },
+    sharePercent: { type: Number, default: 0, min: 0, max: 100 },
     joinedOn: { type: Date, required: true },
     notes: { type: String, default: '', trim: true },
     active: { type: Boolean, default: true },
@@ -680,6 +682,7 @@ export interface ITradingPayout {
   period: TradingPeriod;
   periodDate: Date;
   capitalAtPayout: number;
+  sharePercent: number;
   amount: number;
   status: 'recorded' | 'paid';
   createdAt: Date;
@@ -694,6 +697,7 @@ const tradingPayoutSchema = new Schema<ITradingPayout>(
     period: { type: String, enum: ['weekly', 'monthly', 'quarterly'], required: true },
     periodDate: { type: Date, required: true, index: true },
     capitalAtPayout: { type: Number, required: true, min: 0 },
+    sharePercent: { type: Number, default: 0, min: 0, max: 100 },
     amount: { type: Number, required: true, min: 0 },
     status: { type: String, enum: ['recorded', 'paid'], default: 'recorded' },
   },

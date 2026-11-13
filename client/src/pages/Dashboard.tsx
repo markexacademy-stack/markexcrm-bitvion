@@ -1,6 +1,6 @@
-import { FormEvent, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ApiError, api } from '@/api/client';
+import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/api/client';
 import { Alert, Card, PageHeader, Spinner, useTitle } from '@/components/ui';
 import { dayLabel, inr } from '@/lib/money';
 
@@ -18,37 +18,47 @@ interface Overview {
   recentExpenses: { _id: string; purpose: string; amount: number; spentOn: string }[];
 }
 
+interface TradingInvestor {
+  _id: string;
+  fullName: string;
+  capital: number;
+  sharePercent: number;
+  active: boolean;
+  payoutTotal: number;
+}
+
+interface TradingOverview {
+  settings: { quarterlyInvestorPercent: number };
+  totals: {
+    activeInvestors: number;
+    totalCapital: number;
+    grossProfit: number;
+    companyProfit: number;
+    investorPayouts: number;
+  };
+  investors: TradingInvestor[];
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <Card className="px-4 py-3">
+      <p className="text-xs uppercase tracking-wide text-stone-500">{label}</p>
+      <p className="mt-2 break-words text-xl font-semibold text-stone-950 sm:text-2xl">{value}</p>
+    </Card>
+  );
+}
+
 export function DashboardPage() {
   useTitle('Dashboard');
-  const queryClient = useQueryClient();
   const overview = useQuery({ queryKey: ['overview'], queryFn: () => api<Overview>('/api/finance/overview') });
-  const [assets, setAssets] = useState('');
-  const [error, setError] = useState('');
-  const saveAssets = useMutation({
-    mutationFn: (totalAssets: number) => api('/api/finance', { method: 'PATCH', body: JSON.stringify({ totalAssets }) }),
-    onSuccess: async () => {
-      setError('');
-      setAssets('');
-      await queryClient.invalidateQueries({ queryKey: ['overview'] });
-    },
-    onError: (reason) => setError(reason instanceof ApiError ? reason.message : 'The asset figure could not be saved.'),
-  });
+  const trading = useQuery({ queryKey: ['trading'], queryFn: () => api<TradingOverview>('/api/trading/overview') });
 
   if (overview.isLoading) return <Spinner />;
   if (overview.error || !overview.data) return <Alert>The dashboard could not be loaded from the database.</Alert>;
   const data = overview.data;
+  const trade = trading.data;
 
-  function onAssets(event: FormEvent) {
-    event.preventDefault();
-    const amount = Number(assets);
-    if (!Number.isFinite(amount) || amount < 0) {
-      setError('Enter the company asset amount as a number.');
-      return;
-    }
-    saveAssets.mutate(amount);
-  }
-
-  const cards = [
+  const crmCards = [
     ['Students', String(data.students)],
     ['Total revenue', inr(data.totalRevenue)],
     ['Pending amount', inr(data.totalPending)],
@@ -57,27 +67,64 @@ export function DashboardPage() {
     ['Assets after spending', inr(data.assetsAfterSpending)],
   ];
 
+  const tradingCards = trade
+    ? [
+        ['Active investors', String(trade.totals.activeInvestors)],
+        ['Investor capital', inr(trade.totals.totalCapital)],
+        ['Gross trading profit', inr(trade.totals.grossProfit)],
+        ['Company profit', inr(trade.totals.companyProfit)],
+        ['Investor payouts', inr(trade.totals.investorPayouts)],
+        ['Quarterly investor share', `${trade.settings.quarterlyInvestorPercent}%`],
+      ]
+    : [];
+
   return (
     <div>
-      <PageHeader title="Dashboard" subtitle="Revenue is the amount collected from students. Assets after spending is the company asset figure minus recorded spending." />
+      <PageHeader title="Dashboard" subtitle="Total assets follow total revenue automatically. Assets after spending is that figure minus recorded spending." />
       {!data.emailProviderConfigured ? <div className="mb-4"><Card className="border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">Email is not connected yet. Receipts are saved as queued and are not marked sent.</Card></div> : null}
-      {error ? <div className="mb-4"><Alert>{error}</Alert></div> : null}
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
-        {cards.map(([label, value]) => (
-          <Card key={label} className="px-4 py-3">
-            <p className="text-xs uppercase tracking-wide text-stone-500">{label}</p>
-            <p className="mt-2 break-words text-xl font-semibold text-stone-950 sm:text-2xl">{value}</p>
-          </Card>
-        ))}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section>
+          <h2 className="mb-3 font-medium">Bitvion CRM</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {crmCards.map(([label, value]) => <Stat key={label} label={label} value={value} />)}
+          </div>
+        </section>
+        <section>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="font-medium">SN Trading</h2>
+            <Link className="text-sm font-medium text-sky-700" to="/trading">Open trading</Link>
+          </div>
+          {trading.isLoading ? <Spinner /> : null}
+          {trading.error ? <Alert>SN Trading could not be loaded.</Alert> : null}
+          {trade ? (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                {tradingCards.map(([label, value]) => <Stat key={label} label={label} value={value} />)}
+              </div>
+              <Card className="mt-3 p-4">
+                <h3 className="font-medium">Investor profit shares</h3>
+                <p className="mt-1 text-sm text-stone-600">Each investor keeps their own share of the investor pool.</p>
+                {trade.investors.length === 0 ? <p className="mt-3 text-sm text-stone-500">No investors yet.</p> : (
+                  <ul className="mt-3 space-y-2 text-sm">
+                    {trade.investors.map((investor) => (
+                      <li key={investor._id} className="flex items-start justify-between gap-3 border-b border-stone-100 pb-2">
+                        <span>
+                          {investor.fullName}
+                          <span className="block text-xs text-stone-500">{investor.active ? 'Active' : 'Inactive'} · Capital {inr(investor.capital)}</span>
+                        </span>
+                        <span className="text-right">
+                          {investor.sharePercent}%
+                          <span className="block text-xs text-stone-500">Payouts {inr(investor.payoutTotal || 0)}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Card>
+            </>
+          ) : null}
+        </section>
       </div>
-      <Card className="mt-4 p-4">
-        <h2 className="font-medium">Company assets</h2>
-        <p className="mt-1 text-sm text-stone-600">Current figure: {inr(data.totalAssets)}. After spending: {inr(data.assetsAfterSpending)}.</p>
-        <form className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={onAssets}>
-          <label className="block w-full sm:w-auto"><span className="label">Set total assets (₹)</span><input className="field sm:w-52" inputMode="decimal" value={assets} onChange={(event) => setAssets(event.target.value)} placeholder="0" required /></label>
-          <button className="btn-primary w-full sm:w-auto" type="submit" disabled={saveAssets.isPending}>{saveAssets.isPending ? 'Saving…' : 'Save assets'}</button>
-        </form>
-      </Card>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card className="p-4">
           <h2 className="mb-3 font-medium">Recent students</h2>

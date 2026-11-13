@@ -38,16 +38,23 @@ function roundMoney(value: number) {
 
 router.get('/trading/overview', requirePermission('students.view'), asyncHandler(async (_req, res) => {
   const settings = await getTradingSettings();
-  const [investors, profits, payouts] = await Promise.all([
+  const [investors, profits, payouts, payoutTotals, profitTotals] = await Promise.all([
     TradingInvestor.find().sort({ createdAt: -1 }),
     TradingProfit.find().sort({ periodDate: -1, createdAt: -1 }).limit(40),
     TradingPayout.find().sort({ periodDate: -1, createdAt: -1 }).limit(80),
+    TradingPayout.aggregate<{ _id: typeof TradingInvestor.prototype._id; total: number }>([
+      { $group: { _id: '$investorId', total: { $sum: '$amount' } } },
+    ]),
+    TradingProfit.aggregate<{ gross: number; company: number }>([
+      { $group: { _id: null, gross: { $sum: '$grossProfit' }, company: { $sum: '$companyProfit' } } },
+    ]),
   ]);
+  const paidByInvestor = new Map(payoutTotals.map((row) => [String(row._id), row.total || 0]));
   const active = investors.filter((item) => item.active);
   const totalCapital = active.reduce((sum, item) => sum + item.capital, 0);
-  const companyProfit = profits.reduce((sum, item) => sum + item.companyProfit, 0);
-  const investorPaid = payouts.reduce((sum, item) => sum + item.amount, 0);
-  const grossProfit = profits.reduce((sum, item) => sum + item.grossProfit, 0);
+  const companyProfit = profitTotals[0]?.company || 0;
+  const investorPaid = payoutTotals.reduce((sum, row) => sum + (row.total || 0), 0);
+  const grossProfit = profitTotals[0]?.gross || 0;
   res.json({
     settings: {
       weeklyInvestorPercent: settings.weeklyInvestorPercent,
@@ -62,7 +69,10 @@ router.get('/trading/overview', requirePermission('students.view'), asyncHandler
       companyProfit,
       investorPayouts: investorPaid,
     },
-    investors,
+    investors: investors.map((item) => ({
+      ...item.toObject(),
+      payoutTotal: paidByInvestor.get(String(item._id)) || 0,
+    })),
     profits,
     payouts,
   });
@@ -94,6 +104,7 @@ router.post('/trading/investors', requirePermission('students.edit'), validate(e
     phone: z.string().trim().max(40).optional().default(''),
     email: z.string().trim().max(320).optional().default(''),
     capital: money,
+    sharePercent: percent,
     joinedOn: day,
     notes: z.string().trim().max(1000).optional().default(''),
     active: z.boolean().optional().default(true),
@@ -106,6 +117,7 @@ router.post('/trading/investors', requirePermission('students.edit'), validate(e
     phone: req.body.phone || undefined,
     email: email || undefined,
     capital: req.body.capital,
+    sharePercent: req.body.sharePercent,
     joinedOn: new Date(`${req.body.joinedOn}T00:00:00.000Z`),
     notes: req.body.notes || '',
     active: req.body.active !== false,
@@ -121,6 +133,7 @@ router.patch('/trading/investors/:id', requirePermission('students.edit'), valid
     phone: z.string().trim().max(40).optional(),
     email: z.string().trim().max(320).optional(),
     capital: money.optional(),
+    sharePercent: percent.optional(),
     joinedOn: day.optional(),
     notes: z.string().trim().max(1000).optional(),
     active: z.boolean().optional(),
@@ -136,6 +149,7 @@ router.patch('/trading/investors/:id', requirePermission('students.edit'), valid
     investor.email = email || undefined;
   }
   if (req.body.capital !== undefined) investor.capital = req.body.capital;
+  if (req.body.sharePercent !== undefined) investor.sharePercent = req.body.sharePercent;
   if (req.body.joinedOn) investor.joinedOn = new Date(`${req.body.joinedOn}T00:00:00.000Z`);
   if (req.body.notes !== undefined) investor.notes = req.body.notes;
   if (req.body.active !== undefined) investor.active = req.body.active;
@@ -172,9 +186,10 @@ router.post('/trading/profits', requirePermission('students.edit'), validate(env
   const label = req.body.label || `${kind[0].toUpperCase()}${kind.slice(1)} profit`;
 
   const investors = await TradingInvestor.find({ active: true });
-  const totalCapital = investors.reduce((sum, item) => sum + item.capital, 0);
-  if (investorPool > 0 && totalCapital <= 0) {
-    throw badRequest('Add at least one active investor with capital before recording investor payouts.');
+  const sharingInvestors = investors.filter((item) => item.sharePercent > 0);
+  const totalShare = sharingInvestors.reduce((sum, item) => sum + item.sharePercent, 0);
+  if (investorPool > 0 && totalShare <= 0) {
+    throw badRequest('Set a different profit share on each active investor before recording payouts.');
   }
 
   const profit = await TradingProfit.create({
@@ -190,13 +205,13 @@ router.post('/trading/profits', requirePermission('students.edit'), validate(env
   });
 
   const payouts = [];
-  if (investorPool > 0 && totalCapital > 0) {
+  if (investorPool > 0 && totalShare > 0) {
     let allocated = 0;
-    for (let index = 0; index < investors.length; index += 1) {
-      const investor = investors[index];
-      const share = index === investors.length - 1
+    for (let index = 0; index < sharingInvestors.length; index += 1) {
+      const investor = sharingInvestors[index];
+      const share = index === sharingInvestors.length - 1
         ? roundMoney(investorPool - allocated)
-        : roundMoney((investorPool * investor.capital) / totalCapital);
+        : roundMoney((investorPool * investor.sharePercent) / totalShare);
       allocated = roundMoney(allocated + share);
       if (share <= 0) continue;
       payouts.push(await TradingPayout.create({
@@ -206,6 +221,7 @@ router.post('/trading/profits', requirePermission('students.edit'), validate(env
         period: kind,
         periodDate,
         capitalAtPayout: investor.capital,
+        sharePercent: investor.sharePercent,
         amount: share,
         status: 'recorded',
       }));
