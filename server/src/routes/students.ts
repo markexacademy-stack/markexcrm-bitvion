@@ -19,6 +19,29 @@ import { formatDateInTimeZone } from '../lib/time';
 
 const router = Router();
 
+const money = z.coerce.number().min(0).max(1000000000);
+
+function roundMoney(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function resolvePayment(totalFee: number, amountCollected: number) {
+  const fee = roundMoney(Math.max(0, totalFee));
+  const paid = roundMoney(Math.max(0, amountCollected));
+  if (paid > fee) throw badRequest('Amount paid cannot be more than the total fee.');
+  return {
+    totalFee: fee,
+    amountCollected: paid,
+    pendingAmount: roundMoney(fee - paid),
+  };
+}
+
+function studentTotalFee(student: { totalFee?: number; amountCollected?: number; pendingAmount?: number }) {
+  const stored = Number(student.totalFee || 0);
+  if (stored > 0) return stored;
+  return roundMoney(Number(student.amountCollected || 0) + Number(student.pendingAmount || 0));
+}
+
 router.get('/', requirePermission('students.view'), validate(envelope({
   query: z.object({
     page: z.coerce.number().int().min(1).default(1),
@@ -68,8 +91,9 @@ router.post('/', requirePermission('students.edit'), validate(envelope({
     phone: z.string().trim().max(40).optional().default(''),
     gender: z.enum(['Male', 'Female', 'Other']).optional(),
     place: z.string().trim().max(120).optional().default(''),
-    amountCollected: z.coerce.number().min(0).max(1000000000).optional().default(0),
-    pendingAmount: z.coerce.number().min(0).max(1000000000).optional().default(0),
+    totalFee: money.optional(),
+    amountCollected: money.optional().default(0),
+    pendingAmount: money.optional(),
     collectedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     courseId: objectId.optional(),
     marketingConsent: z.boolean().optional().default(false),
@@ -80,6 +104,13 @@ router.post('/', requirePermission('students.edit'), validate(envelope({
   const email = normalizeEmail(req.body.email);
   if (await Student.exists({ email, archivedAt: null })) throw conflict('A student with this email already exists. Review the existing record instead of creating another.');
   const course = req.body.courseId ? await resolveCourseId(undefined, req.body.courseId) : { courseId: undefined, courseName: '', mismatch: false };
+  const paid = req.body.amountCollected ?? 0;
+  const totalFee = req.body.totalFee !== undefined
+    ? req.body.totalFee
+    : req.body.pendingAmount !== undefined
+      ? roundMoney(paid + req.body.pendingAmount)
+      : paid;
+  const payment = resolvePayment(totalFee, paid);
   const student = await Student.create({
     studentId: await nextStudentCode(),
     fullName: req.body.fullName,
@@ -93,8 +124,9 @@ router.post('/', requirePermission('students.edit'), validate(envelope({
     marketingConsent: req.body.marketingConsent,
     gender: req.body.gender || 'Other',
     place: req.body.place || '',
-    amountCollected: req.body.amountCollected,
-    pendingAmount: req.body.pendingAmount,
+    totalFee: payment.totalFee,
+    amountCollected: payment.amountCollected,
+    pendingAmount: payment.pendingAmount,
     collectedDate: req.body.collectedDate ? new Date(`${req.body.collectedDate}T00:00:00.000Z`) : undefined,
   });
   await ensureConsent({ email, studentId: student._id.toString(), marketing: req.body.marketingConsent, source: 'manual' });
@@ -139,11 +171,13 @@ router.patch('/:id', requirePermission('students.edit'), validate(envelope({
   params: z.object({ id: objectId }),
   body: z.object({
     fullName: z.string().trim().min(2).max(160).optional(),
+    email: emailField.optional(),
     phone: z.string().trim().max(40).optional(),
     gender: z.enum(['Male', 'Female', 'Other']).optional(),
     place: z.string().trim().max(120).optional(),
-    amountCollected: z.coerce.number().min(0).max(1000000000).optional(),
-    pendingAmount: z.coerce.number().min(0).max(1000000000).optional(),
+    totalFee: money.optional(),
+    amountCollected: money.optional(),
+    pendingAmount: money.optional(),
     collectedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
     sendReceipt: z.boolean().optional(),
     courseId: objectId.nullable().optional(),
@@ -156,11 +190,32 @@ router.patch('/:id', requirePermission('students.edit'), validate(envelope({
   if (!student || student.archivedAt) throw notFound('Student not found.');
   const before = student.fullName;
   if (req.body.fullName) student.fullName = req.body.fullName;
+  if (req.body.email !== undefined) {
+    const email = normalizeEmail(req.body.email);
+    if (email !== student.email) {
+      if (await Student.exists({ email, archivedAt: null, _id: { $ne: student._id } })) {
+        throw conflict('Another student already uses this email.');
+      }
+      student.email = email;
+    }
+  }
   if (req.body.phone !== undefined) student.phone = req.body.phone;
   if (req.body.gender) student.gender = req.body.gender;
   if (req.body.place !== undefined) student.place = req.body.place;
-  if (req.body.amountCollected !== undefined) student.amountCollected = req.body.amountCollected;
-  if (req.body.pendingAmount !== undefined) student.pendingAmount = req.body.pendingAmount;
+  const paymentTouched = req.body.totalFee !== undefined || req.body.amountCollected !== undefined || req.body.pendingAmount !== undefined;
+  if (paymentTouched) {
+    const currentFee = studentTotalFee(student);
+    const paid = req.body.amountCollected !== undefined ? req.body.amountCollected : student.amountCollected;
+    const totalFee = req.body.totalFee !== undefined
+      ? req.body.totalFee
+      : req.body.pendingAmount !== undefined
+        ? roundMoney(paid + req.body.pendingAmount)
+        : currentFee || paid;
+    const payment = resolvePayment(totalFee, paid);
+    student.totalFee = payment.totalFee;
+    student.amountCollected = payment.amountCollected;
+    student.pendingAmount = payment.pendingAmount;
+  }
   if (req.body.collectedDate !== undefined) student.collectedDate = req.body.collectedDate ? new Date(`${req.body.collectedDate}T00:00:00.000Z`) : undefined;
   if (req.body.courseId !== undefined) student.courseId = req.body.courseId || undefined;
   if (req.body.enrollmentStatus) student.enrollmentStatus = req.body.enrollmentStatus;

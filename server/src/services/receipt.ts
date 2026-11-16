@@ -8,6 +8,9 @@ export async function queuePaymentReceipt(student: IStudent & { _id: { toString(
   const settings = await getSettings();
   const collected = student.collectedDate ? formatDateInTimeZone(student.collectedDate, settings.timeZone) : 'Not set';
   const template = await getTemplateBySlug('payment-receipt');
+  const totalFee = Number(student.totalFee || 0) > 0
+    ? Number(student.totalFee)
+    : Number(student.amountCollected || 0) + Number(student.pendingAmount || 0);
   const job = await queueEmail({
     idempotencyKey: paymentReceiptKey(student._id.toString(), student.amountCollected, student.pendingAmount, collected),
     to: student.email,
@@ -18,6 +21,7 @@ export async function queuePaymentReceipt(student: IStudent & { _id: { toString(
       place: student.place || 'Not set',
       email: student.email,
       phone: student.phone || 'Not set',
+      total_fee: formatInr(totalFee),
       amount_collected: formatInr(student.amountCollected),
       pending_amount: formatInr(student.pendingAmount),
       collected_date: collected,

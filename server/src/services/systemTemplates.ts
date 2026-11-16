@@ -195,9 +195,10 @@ Welcome to MARKEX Trading Academy.
 We are pleased to confirm that your registration payment has been received and recorded.
 
 PAYMENT RECEIPT
+Total fee: {{total_fee}}
 Amount paid: {{amount_collected}}
 Collected on: {{collected_date}}
-Pending amount: {{pending_amount}}
+Balance amount: {{pending_amount}}
 
 STUDENT DETAILS
 Name: {{student_name}}
@@ -257,8 +258,9 @@ const receiptHtml = `<!DOCTYPE html>
                   <p style="margin:0 0 4px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#71717a;">Payment received</p>
                   <p style="margin:0 0 10px;font-size:28px;line-height:1.2;font-weight:700;color:#166534;">{{amount_collected}}</p>
                   <p style="margin:0;font-size:14px;line-height:1.6;color:#3f3f46;">
+                    Total fee: {{total_fee}}<br>
                     Collected on: {{collected_date}}<br>
-                    Pending amount: {{pending_amount}}
+                    Balance amount: {{pending_amount}}
                   </p>
                 </td>
               </tr>

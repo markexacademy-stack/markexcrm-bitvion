@@ -58,6 +58,7 @@ export interface IStudent {
   notes: INote[];
   gender: 'Male' | 'Female' | 'Other';
   place: string;
+  totalFee: number;
   amountCollected: number;
   pendingAmount: number;
   collectedDate?: Date;
@@ -94,6 +95,7 @@ const studentSchema = new Schema<IStudent>(
     ],
     gender: { type: String, enum: ['Male', 'Female', 'Other'], default: 'Other' },
     place: { type: String, trim: true, default: '' },
+    totalFee: { type: Number, default: 0, min: 0 },
     amountCollected: { type: Number, default: 0, min: 0 },
     pendingAmount: { type: Number, default: 0, min: 0 },
     collectedDate: Date,

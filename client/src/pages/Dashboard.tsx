@@ -133,7 +133,7 @@ export function DashboardPage() {
               {data.recentStudents.map((student) => (
                 <li key={student._id} className="flex justify-between gap-3 border-b border-stone-100 pb-2">
                   <span>{student.fullName}<span className="block text-xs text-stone-500">{student.place || 'Place not set'}</span></span>
-                  <span className="text-right">{inr(student.amountCollected)}<span className="block text-xs text-stone-500">Pending {inr(student.pendingAmount)} · {dayLabel(student.collectedDate)}</span></span>
+                  <span className="text-right">{inr(student.amountCollected)} paid<span className="block text-xs text-stone-500">Balance {inr(student.pendingAmount)} · {dayLabel(student.collectedDate)}</span></span>
                 </li>
               ))}
             </ul>
