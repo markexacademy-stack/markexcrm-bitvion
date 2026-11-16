@@ -726,6 +726,102 @@ const tradingSettingsSchema = new Schema<ITradingSettings>(
   { timestamps: true },
 );
 
+export interface IPortfolioDesk {
+  _id: Types.ObjectId;
+  key: string;
+  deskName: string;
+  aum: number;
+  netProfit: number;
+  ytdReturnPercent: number;
+  accuracyPercent: number;
+  winRatePercent: number;
+  profitFactor: number;
+  sharpeRatio: number;
+  maxDrawdownPercent: number;
+  activeStrategies: number;
+  tradesThisMonth: number;
+  bestMonthPercent: number;
+  riskProfile: string;
+  mandate: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const portfolioDeskSchema = new Schema<IPortfolioDesk>(
+  {
+    key: { type: String, required: true, unique: true },
+    deskName: { type: String, default: 'MX Managed Portfolio', trim: true },
+    aum: { type: Number, default: 200000000, min: 0 },
+    netProfit: { type: Number, default: 28400000, min: 0 },
+    ytdReturnPercent: { type: Number, default: 18.6, min: -100, max: 1000 },
+    accuracyPercent: { type: Number, default: 87.4, min: 0, max: 100 },
+    winRatePercent: { type: Number, default: 72.8, min: 0, max: 100 },
+    profitFactor: { type: Number, default: 2.84, min: 0 },
+    sharpeRatio: { type: Number, default: 2.16, min: -10, max: 20 },
+    maxDrawdownPercent: { type: Number, default: 4.2, min: 0, max: 100 },
+    activeStrategies: { type: Number, default: 5, min: 0 },
+    tradesThisMonth: { type: Number, default: 146, min: 0 },
+    bestMonthPercent: { type: Number, default: 4.8, min: -100, max: 1000 },
+    riskProfile: { type: String, default: 'Controlled growth', trim: true },
+    mandate: { type: String, default: 'Professional multi-strategy desk managing Indian market capital with strict risk limits and measured compounding.', trim: true },
+  },
+  { timestamps: true },
+);
+
+export interface IPortfolioSleeve {
+  _id: Types.ObjectId;
+  name: string;
+  style: string;
+  allocationPercent: number;
+  capital: number;
+  returnPercent: number;
+  accuracyPercent: number;
+  status: 'active' | 'paused';
+  note: string;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const portfolioSleeveSchema = new Schema<IPortfolioSleeve>(
+  {
+    name: { type: String, required: true, trim: true },
+    style: { type: String, required: true, trim: true },
+    allocationPercent: { type: Number, required: true, min: 0, max: 100 },
+    capital: { type: Number, required: true, min: 0 },
+    returnPercent: { type: Number, required: true },
+    accuracyPercent: { type: Number, required: true, min: 0, max: 100 },
+    status: { type: String, enum: ['active', 'paused'], default: 'active' },
+    note: { type: String, default: '', trim: true },
+    sortOrder: { type: Number, default: 0 },
+  },
+  { timestamps: true },
+);
+
+export interface IPortfolioMonth {
+  _id: Types.ObjectId;
+  label: string;
+  monthDate: Date;
+  aum: number;
+  returnPercent: number;
+  profit: number;
+  accuracyPercent: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const portfolioMonthSchema = new Schema<IPortfolioMonth>(
+  {
+    label: { type: String, required: true, trim: true },
+    monthDate: { type: Date, required: true, index: true },
+    aum: { type: Number, required: true, min: 0 },
+    returnPercent: { type: Number, required: true },
+    profit: { type: Number, required: true },
+    accuracyPercent: { type: Number, required: true, min: 0, max: 100 },
+  },
+  { timestamps: true },
+);
+
 export const User = mongoose.model<IUser>('User', userSchema);
 export const Student = mongoose.model<IStudent>('Student', studentSchema);
 export const RegistrationForm = mongoose.model<IRegistrationForm>('RegistrationForm', registrationFormSchema);
@@ -748,3 +844,6 @@ export const TradingInvestor = mongoose.model<ITradingInvestor>('TradingInvestor
 export const TradingProfit = mongoose.model<ITradingProfit>('TradingProfit', tradingProfitSchema);
 export const TradingPayout = mongoose.model<ITradingPayout>('TradingPayout', tradingPayoutSchema);
 export const TradingSettings = mongoose.model<ITradingSettings>('TradingSettings', tradingSettingsSchema);
+export const PortfolioDesk = mongoose.model<IPortfolioDesk>('PortfolioDesk', portfolioDeskSchema);
+export const PortfolioSleeve = mongoose.model<IPortfolioSleeve>('PortfolioSleeve', portfolioSleeveSchema);
+export const PortfolioMonth = mongoose.model<IPortfolioMonth>('PortfolioMonth', portfolioMonthSchema);

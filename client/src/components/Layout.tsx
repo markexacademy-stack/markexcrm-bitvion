@@ -6,6 +6,7 @@ const items = [
   { to: '/students', label: 'Students' },
   { to: '/spending', label: 'Spending' },
   { to: '/trading', label: 'MX Trading' },
+  { to: '/portfolio', label: 'Portfolio' },
   { to: '/mail', label: 'Mail' },
 ];
 
@@ -49,9 +50,9 @@ export function Layout() {
           <Outlet />
         </main>
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-200 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden" aria-label="Mobile">
-          <div className="grid grid-cols-5">
+          <div className="grid grid-cols-3">
             {items.map((item) => (
-              <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => `flex min-h-14 items-center justify-center px-0.5 text-center text-[11px] font-medium leading-tight sm:text-xs ${isActive ? 'text-sky-700' : 'text-stone-500'}`}>
+              <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => `flex min-h-12 items-center justify-center px-0.5 text-center text-[11px] font-medium leading-tight sm:text-xs ${isActive ? 'text-sky-700' : 'text-stone-500'}`}>
                 {item.label}
               </NavLink>
             ))}

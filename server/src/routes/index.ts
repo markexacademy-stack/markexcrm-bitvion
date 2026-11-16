@@ -11,6 +11,7 @@ import whatsappRoutes from './whatsapp';
 import platformRoutes, { publicRouter } from './platform';
 import financeRoutes from './finance';
 import tradingRoutes from './trading';
+import portfolioRoutes from './portfolio';
 import { requireAuth, requireCsrf } from '../middleware/auth';
 
 const router = Router();
@@ -26,6 +27,7 @@ router.use('/users', userRoutes);
 router.use('/students', studentRoutes);
 router.use('/', financeRoutes);
 router.use('/', tradingRoutes);
+router.use('/', portfolioRoutes);
 router.use('/courses', courseRoutes);
 router.use('/batches', batchRoutes);
 router.use('/classes', classRoutes);
